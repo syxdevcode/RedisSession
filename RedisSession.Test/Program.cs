@@ -1,14 +1,20 @@
 ﻿using ServiceStack.Redis;
+using Snowflake;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace RedisSession.Test
 {
     class Program
     {
+        private static int N = 2000000;
+        private static HashSet<long> set = new HashSet<long>();
+        private static IdWorker worker = new IdWorker(1, 1);
+        private static int taskCount = 0;
         static void Main(string[] args)
         {
             //初始化RedisClient对象
@@ -86,32 +92,79 @@ namespace RedisSession.Test
             #endregion
 
             #region Sort Set集合
-            client.AddItemToSortedSet("SA", "B", 2);
-            client.AddItemToSortedSet("SA", "C", 1);
-            client.AddItemToSortedSet("SA", "D", 5);
-            client.AddItemToSortedSet("SA", "E", 3);
-            client.AddItemToSortedSet("SA", "F", 4);
+            //client.AddItemToSortedSet("SA", "B", 2);
+            //client.AddItemToSortedSet("SA", "C", 1);
+            //client.AddItemToSortedSet("SA", "D", 5);
+            //client.AddItemToSortedSet("SA", "E", 3);
+            //client.AddItemToSortedSet("SA", "F", 4);
 
-            //有序集合降序排列
-            Console.WriteLine("\n有序集合降序排列");
-            client.GetAllItemsFromSortedSetDesc("SA").ForEach(e => Console.WriteLine(e));
-            Console.WriteLine("\n有序集合升序排列");
-            client.GetAllItemsFromSortedSet("SA").ForEach(e => Console.WriteLine(e));
-            client.AddItemToSortedSet("SB", "C", 2);
-            client.AddItemToSortedSet("SB", "F", 1);
-            client.AddItemToSortedSet("SB", "D", 3);
-            Console.WriteLine("\n获得某个值在有序集合中的排名，按照分数的排序排列");
+            ////有序集合降序排列
+            //Console.WriteLine("\n有序集合降序排列");
+            //client.GetAllItemsFromSortedSetDesc("SA").ForEach(e => Console.WriteLine(e));
+            //Console.WriteLine("\n有序集合升序排列");
+            //client.GetAllItemsFromSortedSet("SA").ForEach(e => Console.WriteLine(e));
+            //client.AddItemToSortedSet("SB", "C", 2);
+            //client.AddItemToSortedSet("SB", "F", 1);
+            //client.AddItemToSortedSet("SB", "D", 3);
+            //Console.WriteLine("\n获得某个值在有序集合中的排名，按照分数的排序排列");
 
-            Console.WriteLine(client.GetItemIndexInSortedSet("SB", "D"));
+            //Console.WriteLine(client.GetItemIndexInSortedSet("SB", "D"));
 
-            Console.WriteLine("\n获取有序集合中某个分数值");
-            Console.WriteLine(client.GetItemScoreInSortedSet("SB", "D"));
-            Console.WriteLine("\n获得有序集合中，某个排名范围的所有值");
-            client.GetRangeFromSortedSet("SA", 0, 3).ForEach(o => Console.WriteLine(o));
+            //Console.WriteLine("\n获取有序集合中某个分数值");
+            //Console.WriteLine(client.GetItemScoreInSortedSet("SB", "D"));
+            //Console.WriteLine("\n获得有序集合中，某个排名范围的所有值");
+            //client.GetRangeFromSortedSet("SA", 0, 3).ForEach(o => Console.WriteLine(o));
+
+            #endregion
+
+            #region Snowflake.Net 
+            Task.Run(() => GetID());
+            Task.Run(() => GetID());
+            Task.Run(() => GetID());
+
+            Task.Run(() => Printf());
+
+            //foreach(var item in set)
+            //{
+            //    Console.WriteLine(item);
+            //}
 
             #endregion
 
             Console.ReadKey();
+        }
+
+        private static void Printf()
+        {
+            while (taskCount != 3)
+            {
+                Console.WriteLine("...");
+                Thread.Sleep(1000);
+            }
+            Console.WriteLine(set.Count == N * taskCount);
+        }
+
+        private static object o = new object();
+        private static void GetID()
+        {
+            for (var i = 0; i < N; i++)
+            {
+                var id = worker.NextId();
+
+                lock (o)
+                {
+                    if (set.Contains(id))
+                    {
+                        Console.WriteLine("发现重复项 : {0}", id);
+                    }
+                    else
+                    {
+                        set.Add(id);
+                    }
+                }
+
+            }
+            Console.WriteLine($"任务{++taskCount}完成");
         }
     }
 }
